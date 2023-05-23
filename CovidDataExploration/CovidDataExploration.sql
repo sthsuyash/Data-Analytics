@@ -1,3 +1,10 @@
+-- Create the Database
+CREATE DATABASE CovidDataExploration;
+
+-- Then, data is imported from the excel file to the db to tables CovidDeaths and CovidVaccinations
+
+USE CovidDataExploration;
+
 -- Select all data for checking purpose
 SELECT *
 FROM CovidDataExploration..CovidDeaths
@@ -118,7 +125,7 @@ ORDER BY TotalDeaths DESC;
 ---
 
 -- Global Numbers
-SELECT 
+SELECT
     CAST(date as Date) AS Date, -- Cast date to only display date and not times
 	SUM(new_cases) AS DailyNewCases,
 	SUM(CAST(new_deaths AS decimal)) AS DailyNewDeaths,
@@ -141,11 +148,110 @@ FROM CovidDataExploration..CovidDeaths
 WHERE continent IS NOT NULL;
 ---
 
+-- What is the total population of the world and the vaccinated population?
+
 -- Join the tables
-SELECT *
+----SELECT
+----	death.continent AS Continent,
+----	death.location AS Country,
+----	CAST(death.date AS date) AS Date,
+----	death.population AS TotalPopulation,
+----	vac.new_vaccinations AS NewVaccinationsPerDay,
+----	SUM(CAST(vac.new_vaccinations AS decimal)) 
+----		OVER (PARTITION BY death.location 
+----			ORDER BY death.location, death.date) 
+----		AS TotalVaccinatedPerCountry
+----FROM CovidDataExploration..CovidDeaths death
+----JOIN CovidDataExploration..CovidVaccinations vac
+----	ON death.location = vac.location
+----	AND death.date = vac.date
+----WHERE death.continent IS NOT NULL
+----ORDER BY 2, 3;
+---
+
+-- Use CTE
+WITH PopVSVac (Continent, Country, Date, TotalPopulation, NewVaccinationsPerDay, TotalVaccinatedPerCountry)
+AS
+(
+	SELECT
+	death.continent AS Continent,
+	death.location AS Country,
+	CAST(death.date AS date) AS Date,
+	death.population AS TotalPopulation,
+	vac.new_vaccinations AS NewVaccinationsPerDay,
+	SUM(CAST(vac.new_vaccinations AS decimal)) 
+		OVER (PARTITION BY death.location 
+			ORDER BY death.location, death.date) 
+		AS TotalVaccinatedPerCountry
+	FROM CovidDataExploration..CovidDeaths death
+	JOIN CovidDataExploration..CovidVaccinations vac
+		ON death.location = vac.location
+		AND death.date = vac.date
+	WHERE death.continent IS NOT NULL
+)
+SELECT * ,
+	(TotalVaccinatedPerCountry / TotalPopulation) * 100 AS VaccinatedPercentage
+FROM PopVSVac
+ORDER BY 2,3;
+---
+
+-- TEMP TABLE
+DROP TABLE IF EXISTS #PercentPopulationVaccinated
+CREATE TABLE #PercentPopulationVaccinated
+(
+	Continent nvarchar(255),
+	Location nvarchar(255),
+	Date date,
+	TotalPopulation decimal,
+	NewVaccinationsPerDay decimal,
+	TotalVaccinatedPerCountry decimal
+);
+
+INSERT INTO #PercentPopulationVaccinated
+SELECT
+	death.continent AS Continent,
+	death.location AS Country,
+	CAST(death.date AS date) AS Date,
+	death.population AS TotalPopulation,
+	vac.new_vaccinations AS NewVaccinationsPerDay,
+	SUM(CAST(vac.new_vaccinations AS decimal)) 
+		OVER (PARTITION BY death.location 
+			ORDER BY death.location, death.date) 
+		AS TotalVaccinatedPerCountry
 FROM CovidDataExploration..CovidDeaths death
 JOIN CovidDataExploration..CovidVaccinations vac
 	ON death.location = vac.location
-	AND death.date = vac.date;
+	AND death.date = vac.date
+--WHERE death.continent IS NOT NULL
+
+SELECT * ,
+	(TotalVaccinatedPerCountry / TotalPopulation) * 100 AS VaccinatedPercentage
+FROM #PercentPopulationVaccinated
+ORDER BY 2,3;
 ---
 
+-- Creating Views to store data for later visualization
+
+-- Drop the view if it already exists
+IF OBJECT_ID('VaccinatedPopPercent', 'V') IS NOT NULL
+    DROP VIEW VaccinatedPopPercent;
+---
+
+-- Creating the view
+CREATE VIEW VaccinatedPopPercent AS
+SELECT
+    death.continent AS Continent,
+    death.location AS Country,
+    CAST(death.date AS date) AS Date,
+    death.population AS TotalPopulation,
+    vac.new_vaccinations AS NewVaccinationsPerDay,
+    SUM(CAST(vac.new_vaccinations AS decimal)) 
+        OVER (PARTITION BY death.location 
+            ORDER BY death.location, death.date) 
+        AS TotalVaccinatedPerCountry
+FROM CovidDataExploration..CovidDeaths death
+JOIN CovidDataExploration..CovidVaccinations vac
+    ON death.location = vac.location
+    AND death.date = vac.date
+WHERE death.continent IS NOT NULL;
+---
