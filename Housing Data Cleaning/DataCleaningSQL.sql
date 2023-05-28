@@ -67,7 +67,7 @@ WHERE b.PropertyAddress IS NULL;
 ---
 
 -- Normalizing Address column
--- Separate into (Address, City, State)
+-- Separate into (Address, City)
 
 SELECT PropertyAddress
 FROM Housing..Nashville;
@@ -89,8 +89,76 @@ SELECT
 	SUBSTRING(PropertyAddress, index_of_comma + 1, LEN(PropertyAddress)) AS Addd
 FROM CTE_Address;
 
---
+-- Now add the splitted tables
 
+-- Add Splitted Address
+ALTER TABLE Housing..Nashville
+ADD PropertySplitAddress NVARCHAR(255);
 
+-- Update the column to fill the values
+UPDATE Housing..Nashville
+SET PropertySplitAddress = SUBSTRING(
+								PropertyAddress, 
+								1, 
+								CHARINDEX(',', PropertyAddress) - 1
+							);
 
+ALTER TABLE Housing..Nashville
+ADD PropertySplitCity NVARCHAR(255);
+
+-- Update the column to fill the values
+UPDATE Housing..Nashville
+SET PropertySplitCity = SUBSTRING(
+							PropertyAddress,
+							CHARINDEX(',', PropertyAddress) + 1,
+							LEN(PropertyAddress)
+						);
+
+SELECT * FROM Housing..Nashville;
+
+-- Another way:
+SELECT
+	PARSENAME(REPLACE(PropertyAddress, ',', '.'), 2) AS SplitAddress,
+	PARSENAME(REPLACE(PropertyAddress, ',', '.'), 1) AS SplitCity
+FROM Housing..Nashville;
 ---
+
+-- Normalize OwnerAddress column
+-- Separate into (Address, City, State)
+
+SELECT OwnerAddress
+FROM Housing..Nashville;
+
+-- Using PARSENAME
+-- only useful with periods(.)
+-- So replace the ',' in address with '.' by REPLACE
+-- Selects from backwards, the comma separated values
+SELECT
+	PARSENAME(REPLACE(OwnerAddress, ',', '.'), 3) AS SplitAddress,
+	PARSENAME(REPLACE(OwnerAddress, ',', '.'), 2) AS SplitCity,
+	PARSENAME(REPLACE(OwnerAddress, ',', '.'), 1) AS SplitState
+FROM Housing..Nashville;
+
+-- Now, update the table to add the columns and their values
+ALTER TABLE Housing..Nashville
+ADD OwnerSplitAddress NVARCHAR(255);
+
+ALTER TABLE Housing..Nashville
+ADD OwnerSplitCity NVARCHAR(255);
+
+ALTER TABLE Housing..Nashville
+ADD OwnerSplitState NVARCHAR(255);
+
+UPDATE Housing..Nashville
+SET OwnerSplitAddress = PARSENAME(REPLACE(OwnerAddress, ',', '.'), 3);
+
+UPDATE Housing..Nashville
+SET OwnerSplitCity = PARSENAME(REPLACE(OwnerAddress, ',', '.'), 2);
+
+UPDATE Housing..Nashville
+SET OwnerSplitState = PARSENAME(REPLACE(OwnerAddress, ',', '.'), 1);
+
+SELECT *
+FROM Housing..Nashville;
+---
+
