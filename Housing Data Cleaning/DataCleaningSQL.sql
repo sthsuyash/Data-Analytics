@@ -65,3 +65,32 @@ JOIN Housing..Nashville b
 	AND a.[UniqueID ] <> b.[UniqueID ]
 WHERE b.PropertyAddress IS NULL;
 ---
+
+-- Normalizing Address column
+-- Separate into (Address, City, State)
+
+SELECT PropertyAddress
+FROM Housing..Nashville;
+
+-- SUBSTRING(column, starting index to search from, number of characters from the index)
+-- CHARINDEX('text', column) => returns the length at which the text is found in that column
+-- -1 after the length as we want to exclude the last comma
+
+-- CTE
+WITH CTE_Address AS (
+    SELECT
+        PropertyAddress,
+        CHARINDEX(',', PropertyAddress) AS index_of_comma
+    FROM Housing..Nashville
+)
+-- SELECT * FROM CTE_Address;
+SELECT
+    SUBSTRING(PropertyAddress, 1, index_of_comma - 1) AS Address,
+	SUBSTRING(PropertyAddress, index_of_comma + 1, LEN(PropertyAddress)) AS Addd
+FROM CTE_Address;
+
+--
+
+
+
+---
