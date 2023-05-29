@@ -14,7 +14,7 @@ FROM Housing..Nashville;
 ---
 
 -- Standarize Date Format
-SELECT 
+SELECT
 	SaleDate,
 	CONVERT(date, SaleDate) AS UpdatedDate
 FROM Housing..Nashville;
@@ -162,3 +162,76 @@ SELECT *
 FROM Housing..Nashville;
 ---
 
+-- Change the 'Sold as Vacant' field info
+-- 'Y' for Yes
+-- 'N' for No
+SELECT
+	DISTINCT(SoldAsVacant),
+	COUNT(SoldAsVacant) AS Count
+FROM Housing..Nashville
+GROUP BY SoldAsVacant;
+
+--
+SELECT 
+	SoldAsVacant,
+	CASE SoldAsVacant
+		WHEN 'Y' THEN 'Yes'
+		WHEN 'N' THEN 'No'
+	ELSE SoldAsVacant
+	END
+FROM Housing..Nashville;
+
+-- OR
+/* 
+SELECT 
+	SoldAsVacant,
+	CASE
+		WHEN SoldAsVacant = 'Y' THEN 'Yes'
+		WHEN SoldAsVacant = 'N' THEN 'No'
+	ELSE SoldAsVacant
+	END
+FROM Housing..Nashville;
+*/
+
+-- update the column
+UPDATE Housing..Nashville
+SET SoldAsVacant = CASE SoldAsVacant
+						WHEN 'Y' THEN 'Yes'
+						WHEN 'N' THEN 'No'
+					ELSE SoldAsVacant
+					END;
+---
+
+-- Get rid of Duplicates
+
+-- partition our data
+WITH RowNumCTE AS(
+	SELECT 
+		*,
+		ROW_NUMBER() OVER (
+			PARTITION BY 
+				ParcelID,
+				PropertyAddress,
+				SalePrice,
+				SaleDate,
+				LegalReference
+			ORDER BY UniqueID
+		) AS RowNum
+	FROM Housing..Nashville
+)
+--SELECT *
+DELETE
+FROM RowNumCTE
+WHERE RowNum > 1;
+--ORDER BY PropertyAddress;
+---
+
+-- Delete Unused columns
+
+-- not usually used in raw data to delete
+SELECT *
+FROM Housing..Nashville;
+
+ALTER TABLE Housing..Nashville
+DROP COLUMN PropertyAddress, OwnerAddress, TaxDistrict;
+---
